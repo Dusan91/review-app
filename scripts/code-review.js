@@ -18,15 +18,19 @@ const REVIEW_RULES = `
 You are a React code reviewer. Follow these strict rules:
 1️⃣ Ensure all React components follow best practices.
 2️⃣ Optimize performance by avoiding unnecessary re-renders.
-3️⃣ Check for security risks such as unsafe use of "dangerouslySetInnerHTML".
+3️⃣ Check for security risks such as unsafe use of \`dangerouslySetInnerHTML\`.
 4️⃣ Enforce consistent naming conventions for variables and functions.
-5️⃣ Suggest improvements for better state management (e.g., useReducer over useState when needed).
-6️⃣ Validate that hooks follow the rules of hooks and are used properly.
-7️⃣ Identify unnecessary dependencies or re-renders in useEffect.
-8️⃣ Ensure components are modular and follow the Single Responsibility Principle (SRP).
-9️⃣ Recommend better ways to handle async operations (e.g., using React Query or SWR).
+5️⃣ Ensure that all constants:
+   - Are **declared at the top** of the file.
+   - Use **UPPER_SNAKE_CASE** naming.
+   - Use \`const\` and not \`let\` or \`var\`.
+6️⃣ Suggest improvements for better state management (e.g., useReducer over useState when needed).
+7️⃣ Validate that hooks follow the rules of hooks and are used properly.
+8️⃣ Identify unnecessary dependencies or re-renders in useEffect.
+9️⃣ Ensure components are modular and follow the Single Responsibility Principle (SRP).
 🔟 Highlight any accessibility (a11y) issues in JSX (e.g., missing alt attributes in images).
 `;
+
 
 async function reviewCode(file) {
   const code = fs.readFileSync(file, "utf8");
@@ -39,8 +43,8 @@ async function reviewCode(file) {
       {
         model: "gpt-4",
         messages: [
-          { role: "system", content: REVIEW_RULES },  // Custom rules
-          { role: "user", content: `Review this React code based on the above rules:\n\n${code}` }
+          { role: "system", content: REVIEW_RULES },
+          { role: "user", content: `Review this React code. Check if constants are at the top and use UPPER_SNAKE_CASE. If not, clearly indicate violations.\n\n${code}` }
         ],
         max_tokens: 700,
       },
@@ -52,12 +56,23 @@ async function reviewCode(file) {
       }
     );
 
-    return response.data.choices[0].message.content;
+    const review = response.data.choices[0].message.content;
+    console.log("🚀 ~ reviewCode ~ review:", review)
+
+    // 🚨 Stop commit if constants are incorrectly defined or placed
+    if (review.includes("⚠️ Issue: Constants")) {
+      console.log("🚨 Constants are misplaced or incorrectly named! Fix them before committing.");
+      console.log(review);
+      process.exit(1); // Prevent commit by exiting early
+    }
+
+    return review;
   } catch (error) {
     console.error(`❌ Failed to review ${file}:`, error.message);
     return null;
   }
 }
+
 
 
 // Append review as commit comments

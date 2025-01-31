@@ -14,6 +14,20 @@ async function getStagedFiles() {
 }
 
 // Call ChatGPT to review code
+const REVIEW_RULES = `
+You are a React code reviewer. Follow these strict rules:
+1️⃣ Ensure all React components follow best practices.
+2️⃣ Optimize performance by avoiding unnecessary re-renders.
+3️⃣ Check for security risks such as unsafe use of "dangerouslySetInnerHTML".
+4️⃣ Enforce consistent naming conventions for variables and functions.
+5️⃣ Suggest improvements for better state management (e.g., useReducer over useState when needed).
+6️⃣ Validate that hooks follow the rules of hooks and are used properly.
+7️⃣ Identify unnecessary dependencies or re-renders in useEffect.
+8️⃣ Ensure components are modular and follow the Single Responsibility Principle (SRP).
+9️⃣ Recommend better ways to handle async operations (e.g., using React Query or SWR).
+🔟 Highlight any accessibility (a11y) issues in JSX (e.g., missing alt attributes in images).
+`;
+
 async function reviewCode(file) {
   const code = fs.readFileSync(file, "utf8");
 
@@ -25,10 +39,10 @@ async function reviewCode(file) {
       {
         model: "gpt-4",
         messages: [
-          { role: "system", content: "You are a React expert reviewing code for best practices, performance, and security." },
-          { role: "user", content: `Review this React code and provide suggestions:\n\n${code}` }
+          { role: "system", content: REVIEW_RULES },  // Custom rules
+          { role: "user", content: `Review this React code based on the above rules:\n\n${code}` }
         ],
-        max_tokens: 500,
+        max_tokens: 700,
       },
       {
         headers: {
@@ -44,6 +58,7 @@ async function reviewCode(file) {
     return null;
   }
 }
+
 
 // Append review as commit comments
 async function appendReviewToCommit(review) {

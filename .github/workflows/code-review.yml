@@ -27,7 +27,7 @@ jobs:
         run: npm install
 
       - name: Run code review
-        run: node ../../scipts/code-review.js # Run the code review script
+        run: node scipts/code-review.js # Run the code review script
 
       - name: Fail the MR if constants are incorrect
         run: |

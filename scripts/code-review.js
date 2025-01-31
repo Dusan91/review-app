@@ -1,38 +1,31 @@
-require("dotenv").config();
-const axios = require("axios");
 const fs = require("fs");
+const axios = require("axios");
 const simpleGit = require("simple-git");
+require("dotenv").config();
 
 const API_KEY = process.env.OPENAI_API_KEY;
 const API_URL = "https://api.openai.com/v1/chat/completions";
 const git = simpleGit();
 
-// Read staged files
-async function getStagedFiles() {
-  const status = await git.status();
-  return status.staged.filter(file => file.endsWith(".js") || file.endsWith(".jsx") || file.endsWith(".ts") || file.endsWith(".tsx"));
-}
-
-// Call ChatGPT to review code
+// Review rules
 const REVIEW_RULES = `
 You are a React code reviewer. Follow these strict rules:
 1️⃣ Ensure all React components follow best practices.
-2️⃣ Optimize performance by avoiding unnecessary re-renders.
-3️⃣ Check for security risks such as unsafe use of \`dangerouslySetInnerHTML\`.
-4️⃣ Enforce consistent naming conventions for variables and functions.
-5️⃣ Ensure that all constants:
-   - Are **declared at the top** of the file.
-   - Use **UPPER_SNAKE_CASE** naming.
-   - Use \`const\` and not \`let\` or \`var\`.
-6️⃣ Suggest improvements for better state management (e.g., useReducer over useState when needed).
-7️⃣ Validate that hooks follow the rules of hooks and are used properly.
-8️⃣ Identify unnecessary dependencies or re-renders in useEffect.
-9️⃣ Ensure components are modular and follow the Single Responsibility Principle (SRP).
-🔟 Highlight any accessibility (a11y) issues in JSX (e.g., missing alt attributes in images).
+2️⃣ Check for constants:
+   - Constants should be **declared at the top** of the file.
+   - Constants should use **UPPER_SNAKE_CASE** naming.
+   - Use \`const\` and not \`let\` or \`var\` for constants.
 `;
 
+// Get staged files
+async function getStagedFiles() {
+  const status = await git.status();
+  const stagedFiles = status.staged.filter(file => file.endsWith(".js") || file.endsWith(".jsx") || file.endsWith(".ts") || file.endsWith(".tsx"));
+  console.log("Staged files:", stagedFiles);  // Log staged files
+  return stagedFiles;
+}
 
-
+// Call OpenAI for code review
 async function reviewCode(file) {
   const code = fs.readFileSync(file, "utf8");
 
@@ -45,7 +38,7 @@ async function reviewCode(file) {
         model: "gpt-4",
         messages: [
           { role: "system", content: REVIEW_RULES },
-          { role: "user", content: `Review this React code. Check if constants are at the top and use UPPER_SNAKE_CASE. If not, clearly indicate violations.\n\n${code}` }
+          { role: "user", content: `Review this React code. Check if constants are at the top, use UPPER_SNAKE_CASE, and use 'const' not 'let'.\n\n${code}` }
         ],
         max_tokens: 700,
       },
@@ -58,16 +51,12 @@ async function reviewCode(file) {
     );
 
     const review = response.data.choices[0].message.content;
-    
-    // Log the review into review.txt to use in the CI/CD pipeline
-    fs.appendFileSync('review.txt', `Review for ${file}:\n${review}\n\n`);
-
     console.log("Review response:", review);
 
     // 🚨 Block commit if constants are incorrectly placed or named
-    if (review.includes("Constants should be at the top") || review.includes("UPPER_SNAKE_CASE")) {
-      console.log("🚨 Constants violation detected! Fix before merging.");
-      return "🚨 Constants violation detected!";
+    if (review.includes("Constants should be at the top") || review.includes("UPPER_SNAKE_CASE") || review.includes("use `const` and not `let`")) {
+      console.log("🚨 Constants violation detected! Fix before committing.");
+      process.exit(1); // Prevent commit
     }
 
     return review;
@@ -77,18 +66,17 @@ async function reviewCode(file) {
   }
 }
 
-
-// Append review as commit comments
+// Append review to commit message
 async function appendReviewToCommit(review) {
   if (!review) return;
-  const commitMessage = await git.raw(["log", "-1", "--pretty=%B"]); // Get last commit message
+  const commitMessage = await git.raw(["log", "-1", "--pretty=%B"]);
   const newCommitMessage = `${commitMessage}\n\n🔍 ChatGPT Code Review:\n${review}`;
   
   await git.commit(newCommitMessage, ["--amend", "--no-edit"]);
   console.log("✅ Code review added to commit message.");
 }
 
-// Main function
+// Main function to run the review
 async function run() {
   const files = await getStagedFiles();
   if (files.length === 0) {
@@ -104,13 +92,6 @@ async function run() {
     }
   }
 
-  // If there's a violation and a review was generated, block the commit
-  if (reviewSummary && reviewSummary.includes("🚨 Constants violation detected")) {
-    console.log("🚨 Commit failed due to constants violation.");
-    return;  // Do not proceed with the commit
-  }
-
-  // If no violations, append review to commit message
   if (reviewSummary) {
     console.log(reviewSummary);
     await appendReviewToCommit(reviewSummary);

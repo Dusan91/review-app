@@ -57,13 +57,14 @@ async function reviewCode(file) {
     );
 
     const review = response.data.choices[0].message.content;
-    console.log("🚀 ~ reviewCode ~ review:", review)
+    
+    console.log("Review response:", review); // Log the review content
 
-    // 🚨 Stop commit if constants are incorrectly defined or placed
-    if (review.includes("⚠️ Issue: Constants")) {
-      console.log("🚨 Constants are misplaced or incorrectly named! Fix them before committing.");
-      console.log(review);
-      process.exit(1); // Prevent commit by exiting early
+    // 🚨 Block commit if constants are incorrectly placed or named
+    if (review.includes("Constants should be at the top") || review.includes("UPPER_SNAKE_CASE")) {
+      console.log("🚨 Constants violation detected! Fix before committing.");
+      console.log(review); // Show the exact violations
+      process.exit(1); // Prevent commit
     }
 
     return review;
@@ -72,6 +73,7 @@ async function reviewCode(file) {
     return null;
   }
 }
+
 
 
 

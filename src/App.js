@@ -5,6 +5,7 @@ function App() {
   let test="test";
   let test1="test";
   let test2="test";
+  let test3="test";
   return (
     <div className="App">
       <header className="App-header">

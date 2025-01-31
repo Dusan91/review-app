@@ -74,9 +74,6 @@ async function reviewCode(file) {
   }
 }
 
-
-
-
 // Append review as commit comments
 async function appendReviewToCommit(review) {
   if (!review) return;
@@ -103,6 +100,13 @@ async function run() {
     }
   }
 
+  // If there's a violation and a review was generated, block the commit
+  if (reviewSummary && reviewSummary.includes("🚨 Constants violation detected")) {
+    console.log("🚨 Commit failed due to constants violation.");
+    return;  // Do not proceed with the commit
+  }
+
+  // If no violations, append review to commit message
   if (reviewSummary) {
     console.log(reviewSummary);
     await appendReviewToCommit(reviewSummary);

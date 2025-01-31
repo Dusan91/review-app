@@ -32,6 +32,7 @@ You are a React code reviewer. Follow these strict rules:
 `;
 
 
+
 async function reviewCode(file) {
   const code = fs.readFileSync(file, "utf8");
 
@@ -58,13 +59,15 @@ async function reviewCode(file) {
 
     const review = response.data.choices[0].message.content;
     
-    console.log("Review response:", review); // Log the review content
+    // Log the review into review.txt to use in the CI/CD pipeline
+    fs.appendFileSync('review.txt', `Review for ${file}:\n${review}\n\n`);
+
+    console.log("Review response:", review);
 
     // 🚨 Block commit if constants are incorrectly placed or named
     if (review.includes("Constants should be at the top") || review.includes("UPPER_SNAKE_CASE")) {
-      console.log("🚨 Constants violation detected! Fix before committing.");
-      console.log(review); // Show the exact violations
-      process.exit(1); // Prevent commit
+      console.log("🚨 Constants violation detected! Fix before merging.");
+      return "🚨 Constants violation detected!";
     }
 
     return review;
@@ -73,6 +76,7 @@ async function reviewCode(file) {
     return null;
   }
 }
+
 
 // Append review as commit comments
 async function appendReviewToCommit(review) {

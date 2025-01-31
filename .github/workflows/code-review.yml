@@ -1,25 +1,37 @@
-name: ChatGPT Code Review
+name: Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    paths:
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.ts"
+      - "**/*.tsx"
+    branches:
+      - main # Change to your default branch
 
 jobs:
-  review:
+  code-review:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "16" # Use the appropriate Node.js version
 
-      - name: Install Dependencies
-        run: npm install axios dotenv
+      - name: Install dependencies
+        run: npm install
 
-      - name: Run ChatGPT Code Review
-        run: node scripts/code-review.js
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Run code review
+        run: node code-review.js # Run the code review script
+
+      - name: Fail the MR if constants are incorrect
+        run: |
+          if grep -q "🚨 Constants violation detected!" review.txt; then
+            echo "🚨 Constants violation detected! Fix before merging.";
+            exit 1;
+          fi
